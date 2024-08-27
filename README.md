@@ -6,6 +6,7 @@ Status](https://github.com/benfred/implicit/workflows/Build/badge.svg)](https://
 [![Documentation](https://img.shields.io/badge/documentation-blue.svg)](https://benfred.github.io/implicit/)
 
 WIP: Custom version of Implicit used to test asymetrical train/test leave-k-out split
+
 Fast Python Collaborative Filtering for Implicit Datasets.
 
 This project provides fast Python implementations of several different popular recommendation algorithms for
