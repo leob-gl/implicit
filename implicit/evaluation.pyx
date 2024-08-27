@@ -75,13 +75,18 @@ cdef _choose(rng, int n, float frac):
 
 cdef _take_tails(arr, int n, return_complement=False, shuffled=False, included_elements=None):
     """
-    Modified _take_tails to ensure that specific elements are included in the tails.
+    Modified _take_tails to ensure that only specific elements are included in the tails.
 
     Parameters
     ----------
     included_elements: list or None
-        If not None, these elements will be forced into the tails.
+        If not None, only these elements will be considered for tails.
     """
+    if included_elements is not None:
+        # Filter the array to include only specified elements
+        mask = np.isin(arr, included_elements)
+        arr = arr[mask]
+    
     idx = arr.argsort()
     sorted_arr = arr[idx]
 
@@ -95,11 +100,6 @@ cdef _take_tails(arr, int n, return_complement=False, shuffled=False, included_e
     else:
         tails = np.ravel(ranges, order="f")
 
-    if included_elements is not None:
-        # Force included_elements into the tails
-        forced_tails = np.where(np.isin(sorted_arr, included_elements))[0]
-        tails = np.unique(np.concatenate([tails, forced_tails]))
-
     heads = np.setdiff1d(idx, tails)
 
     if return_complement:
@@ -111,13 +111,14 @@ cpdef leave_k_out_split(
     ratings, int K=1, float train_only_size=0.0, random_state=None, test_items=None
 ):
     """
-    Implements the 'leave-k-out' split protocol with the ability to specify items that
-    must be included in the test set.
+    Implements the 'leave-k-out' split protocol with the ability to exclude items
+    not specified in `test_items` from the test set.
 
     Parameters
     ----------
     test_items : list or None
-        A list of item IDs that must be included in the test set. Default is None.
+        A list of item IDs that must be considered for the test set. All other items
+        will be excluded.
     """
 
     if K < 1:
@@ -132,8 +133,16 @@ cpdef leave_k_out_split(
     items = ratings.col
     data = ratings.data
 
+    # If test_items is provided, filter users and items based on this
+    if test_items is not None:
+        mask = np.isin(items, test_items)
+        users = users[mask]
+        items = items[mask]
+        data = data[mask]
+
     unique_users, counts = np.unique(users, return_counts=True)
 
+    # Now the candidate_mask is based only on the filtered items
     candidate_mask = counts > K + 1
 
     if train_only_size > 0.0:
