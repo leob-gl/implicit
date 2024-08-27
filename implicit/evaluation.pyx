@@ -73,7 +73,40 @@ cdef _choose(rng, int n, float frac):
     arr = rng.choice(n, size=size, replace=False)
     return arr
 
+cdef _take_tails(arr, int n, return_complement=False, shuffled=False, included_elements=None):
+    """
+    Modified _take_tails to ensure that specific elements are included in the tails.
 
+    Parameters
+    ----------
+    included_elements: list or None
+        If not None, these elements will be forced into the tails.
+    """
+    idx = arr.argsort()
+    sorted_arr = arr[idx]
+
+    end = np.bincount(sorted_arr).cumsum() - 1
+    start = end - n
+    ranges = np.linspace(start, end, num=n + 1, dtype=int)[1:]
+
+    if shuffled:
+        shuffled_idx = (sorted_arr + np.random.random(arr.shape)).argsort()
+        tails = shuffled_idx[np.ravel(ranges, order="f")]
+    else:
+        tails = np.ravel(ranges, order="f")
+
+    if included_elements is not None:
+        # Force included_elements into the tails
+        forced_tails = np.where(np.isin(sorted_arr, included_elements))[0]
+        tails = np.unique(np.concatenate([tails, forced_tails]))
+
+    heads = np.setdiff1d(idx, tails)
+
+    if return_complement:
+        return idx[tails], idx[heads]
+    else:
+        return idx[tails]
+    
 cpdef leave_k_out_split(
     ratings, int K=1, float train_only_size=0.0, random_state=None, test_items=None
 ):
