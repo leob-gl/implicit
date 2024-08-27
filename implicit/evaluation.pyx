@@ -384,7 +384,9 @@ def ranking_metrics_at_k(
 
     cdef unordered_set[int] likes
 
-    cdef set included_elements_set = set(included_elements) if included_elements is not None else None
+    cdef set included_elements_set
+    if included_elements is not None:
+        included_elements_set = set(included_elements)
 
     batch_size = 1000
     start_idx = 0
@@ -412,10 +414,12 @@ def ranking_metrics_at_k(
                 u = batch[batch_idx]
                 likes.clear()
 
-                # Consider only the items in the test set that are in included_elements
-                for i in range(test_indptr[u], test_indptr[u + 1]):
-                    if included_elements_set is None or test_indices[i] in included_elements_set:
-                        likes.insert(test_indices[i])
+                # Temporarily acquire the GIL to work with Python objects
+                with gil:
+                    for i in range(test_indptr[u], test_indptr[u + 1]):
+                        # The critical section that requires Python object handling.
+                        if included_elements_set is None or test_indices[i] in included_elements_set:
+                            likes.insert(test_indices[i])
 
                 pr_div += fmin(K, likes.size())
                 ap = 0
