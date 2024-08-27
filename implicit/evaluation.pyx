@@ -314,9 +314,16 @@ def AUC_at_k(model, train_user_items, test_user_items, int K=10,
 
 
 @cython.boundscheck(False)
-def ranking_metrics_at_k(model, train_user_items, test_user_items, int K=10,
-                         show_progress=True, int num_threads=1):
-    """ Calculates ranking metrics for a given trained model
+def ranking_metrics_at_k(
+    model, 
+    train_user_items, 
+    test_user_items, 
+    int K=10,
+    show_progress=True, 
+    int num_threads=1, 
+    included_elements=None
+):
+    """ Calculates ranking metrics for a given trained model, filtering on included_elements.
 
     Parameters
     ----------
@@ -337,11 +344,14 @@ def ranking_metrics_at_k(model, train_user_items, test_user_items, int K=10,
         to the number of cores on the machine. Note: aside from the ALS and BPR
         models, setting this to more than 1 will likely hurt performance rather than
         help.
+    included_elements : array_like, optional
+        List of item ids to be considered in the evaluation. Only these items will
+        be used for calculating the metrics.
 
     Returns
     -------
-    float
-        the calculated p@k
+    dict
+        A dictionary containing the calculated metrics: precision, map, ndcg, auc
     """
     if not isinstance(train_user_items, csr_matrix):
         train_user_items = train_user_items.tocsr()
@@ -370,7 +380,6 @@ def ranking_metrics_at_k(model, train_user_items, test_user_items, int K=10,
 
     cdef unordered_set[int] likes
 
-
     batch_size = 1000
     start_idx = 0
 
@@ -382,15 +391,25 @@ def ranking_metrics_at_k(model, train_user_items, test_user_items, int K=10,
 
     while start_idx < len(to_generate):
         batch = to_generate[start_idx: start_idx + batch_size]
-        ids, _ = model.recommend(batch, train_user_items[batch], N=K)
+
+        # Recommend items using the filter_items parameter
+        ids, _ = model.recommend(
+            batch, 
+            train_user_items[batch], 
+            N=K, 
+            filter_items=included_elements  # Filter out items not in included_elements
+        )
         start_idx += batch_size
 
         with nogil:
             for batch_idx in range(len(batch)):
                 u = batch[batch_idx]
                 likes.clear()
-                for i in range(test_indptr[u], test_indptr[u+1]):
-                    likes.insert(test_indices[i])
+
+                # Consider only the items in the test set that are in included_elements
+                for i in range(test_indptr[u], test_indptr[u + 1]):
+                    if included_elements is None or test_indices[i] in included_elements:
+                        likes.insert(test_indices[i])
 
                 pr_div += fmin(K, likes.size())
                 ap = 0
