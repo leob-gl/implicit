@@ -119,16 +119,21 @@ cpdef leave_k_out_split(ratings, int K=1, float train_only_size=0.0, random_stat
     items = ratings.col
     data = ratings.data
 
-    # Filter items for test set creation only, not for the train set
     if included_elements is not None:
+        # Filter items and related data for test set creation
         mask = np.isin(items, included_elements)
         filtered_users = users[mask]
         filtered_items = items[mask]
         filtered_data = data[mask]
+
+        if len(filtered_items) == 0:
+            raise ValueError("No items in `included_elements` were found in the ratings data.")
+
     else:
         filtered_users = users
         filtered_items = items
         filtered_data = data
+        mask = np.full(items.shape, True)  # Dummy mask, all True
 
     unique_users, counts = np.unique(filtered_users, return_counts=True)
 
@@ -163,11 +168,11 @@ cpdef leave_k_out_split(ratings, int K=1, float train_only_size=0.0, random_stat
     test_mat = csr_matrix((test_data, (test_users, test_items)), shape=ratings.shape, dtype=ratings.dtype)
 
     # Build training matrix using all original data (unfiltered)
-    train_idx = np.setdiff1d(np.arange(len(users)), np.where(mask)[0][test_idx])
-    train_mat = csr_matrix((data[train_idx], (users[train_idx], items[train_idx])), shape=ratings.shape, dtype=ratings.dtype)
+    remaining_train_idx = np.setdiff1d(np.arange(len(users)), np.where(mask)[0][test_idx])
+    train_mat = csr_matrix((data[remaining_train_idx], (users[remaining_train_idx], items[remaining_train_idx])), shape=ratings.shape, dtype=ratings.dtype)
 
     # Diagnostic print statement
-    print(f"Number of unique users in train set: {len(np.unique(users[train_idx]))}")
+    print(f"Number of unique users in train set: {len(np.unique(users[remaining_train_idx]))}")
     print(f"Number of unique users in test set: {len(np.unique(test_users))}")
 
     return train_mat, test_mat
