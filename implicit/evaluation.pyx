@@ -142,8 +142,14 @@ cpdef leave_k_out_split(
 
     unique_users, counts = np.unique(users, return_counts=True)
 
+    # Diagnostic print statement
+    print(f"Total unique users before any filtering: {len(unique_users)}")
+
     # Now the candidate_mask is based only on the filtered items
     candidate_mask = counts > K + 1
+
+    # Diagnostic print statement
+    print(f"Unique users after filtering by K + 1: {len(unique_users[candidate_mask])}")
 
     if train_only_size > 0.0:
         train_only_mask = ~np.isin(
@@ -154,6 +160,9 @@ cpdef leave_k_out_split(
     unique_candidate_users = unique_users[candidate_mask]
     full_candidate_mask = np.isin(users, unique_candidate_users)
 
+    # Diagnostic print statement
+    print(f"Unique users after applying included_elements: {len(unique_candidate_users)}")
+
     candidate_users = users[full_candidate_mask]
     candidate_items = items[full_candidate_mask]
     candidate_data = data[full_candidate_mask]
@@ -162,7 +171,7 @@ cpdef leave_k_out_split(
         candidate_users, K, shuffled=True, return_complement=True, included_elements=test_items
     )
 
-    train_idx = np.setdiff1d(np.arange(len(candidate_users), dtype=int), test_idx)
+    #train_idx = np.setdiff1d(np.arange(len(candidate_users), dtype=int), test_idx)
 
     test_users = candidate_users[test_idx]
     test_items_filtered = candidate_items[test_idx]
@@ -183,8 +192,9 @@ cpdef leave_k_out_split(
     train_users = np.unique(train_users)  # Count unique users in the train set
     test_users = np.unique(test_users)    # Count unique users in the test set
     
-    print(f"Number of unique users in train set: {len(train_users)}")
-    print(f"Number of unique users in test set: {len(test_users)}")
+    # Diagnostic print statement
+    print(f"Number of unique users in train set after _take_tails: {len(np.unique(train_users))}")
+    print(f"Number of unique users in test set after _take_tails: {len(np.unique(test_users))}")
 
     return train_mat, test_mat
 
