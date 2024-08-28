@@ -180,6 +180,12 @@ cpdef leave_k_out_split(
         dtype=ratings.dtype,
     )
 
+    train_users = np.unique(train_users)  # Count unique users in the train set
+    test_users = np.unique(test_users)    # Count unique users in the test set
+    
+    print(f"Number of unique users in train set: {len(train_users)}")
+    print(f"Number of unique users in test set: {len(test_users)}")
+
     return train_mat, test_mat
 
 
