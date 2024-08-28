@@ -119,19 +119,23 @@ cpdef leave_k_out_split(ratings, int K=1, float train_only_size=0.0, random_stat
     items = ratings.col
     data = ratings.data
 
-    # Filter items based on included_elements
+    # Filter items for test set creation only, not for the train set
     if included_elements is not None:
         mask = np.isin(items, included_elements)
-        users = users[mask]
-        items = items[mask]
-        data = data[mask]
+        filtered_users = users[mask]
+        filtered_items = items[mask]
+        filtered_data = data[mask]
+    else:
+        filtered_users = users
+        filtered_items = items
+        filtered_data = data
 
-    unique_users, counts = np.unique(users, return_counts=True)
+    unique_users, counts = np.unique(filtered_users, return_counts=True)
 
     # Diagnostic print statement
     print(f"Total unique users after filtering by included_elements: {len(unique_users)}")
 
-    # Filter users by K + 1 interactions, but only considering items in included_elements
+    # Apply the K+1 condition based on filtered items
     candidate_mask = counts > K + 1
 
     # Diagnostic print statement
@@ -139,18 +143,18 @@ cpdef leave_k_out_split(ratings, int K=1, float train_only_size=0.0, random_stat
 
     # Get unique users who appear in the test set
     unique_candidate_users = unique_users[candidate_mask]
-    full_candidate_mask = np.isin(users, unique_candidate_users)
+    full_candidate_mask = np.isin(filtered_users, unique_candidate_users)
 
     # Diagnostic print statement
     print(f"Unique users after applying included_elements: {len(unique_candidate_users)}")
 
     # Get all users, items, and ratings that match the criteria for the test set
-    candidate_users = users[full_candidate_mask]
-    candidate_items = items[full_candidate_mask]
-    candidate_data = data[full_candidate_mask]
+    candidate_users = filtered_users[full_candidate_mask]
+    candidate_items = filtered_items[full_candidate_mask]
+    candidate_data = filtered_data[full_candidate_mask]
 
-    # Split into test and train indices
-    test_idx, train_idx = _take_tails(candidate_users, K, shuffled=True, return_complement=True, included_elements=included_elements)
+    # Split into test and train indices using only the filtered data
+    test_idx, _ = _take_tails(candidate_users, K, shuffled=True, return_complement=True, included_elements=included_elements)
 
     # Build test matrix
     test_users = candidate_users[test_idx]
@@ -158,15 +162,13 @@ cpdef leave_k_out_split(ratings, int K=1, float train_only_size=0.0, random_stat
     test_data = candidate_data[test_idx]
     test_mat = csr_matrix((test_data, (test_users, test_items)), shape=ratings.shape, dtype=ratings.dtype)
 
-    # Build training matrix
-    train_users = np.r_[users[~full_candidate_mask], candidate_users[train_idx]]
-    train_items = np.r_[items[~full_candidate_mask], candidate_items[train_idx]]
-    train_data = np.r_[data[~full_candidate_mask], candidate_data[train_idx]]
-    train_mat = csr_matrix((train_data, (train_users, train_items)), shape=ratings.shape, dtype=ratings.dtype)
+    # Build training matrix using all original data (unfiltered)
+    train_idx = np.setdiff1d(np.arange(len(users)), np.where(mask)[0][test_idx])
+    train_mat = csr_matrix((data[train_idx], (users[train_idx], items[train_idx])), shape=ratings.shape, dtype=ratings.dtype)
 
     # Diagnostic print statement
-    print(f"Number of unique users in train set after _take_tails: {len(np.unique(train_users))}")
-    print(f"Number of unique users in test set after _take_tails: {len(np.unique(test_users))}")
+    print(f"Number of unique users in train set: {len(np.unique(users[train_idx]))}")
+    print(f"Number of unique users in test set: {len(np.unique(test_users))}")
 
     return train_mat, test_mat
 
